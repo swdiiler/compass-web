@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>招商决策Compass</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="主导航">
+        <div class="brand-block">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 64 64" role="img" aria-label="招商决策Compass icon">
+              <defs>
+                <linearGradient id="brandGrad" x1="8%" y1="4%" x2="92%" y2="96%">
+                  <stop offset="0%" stop-color="#00b894" />
+                  <stop offset="48%" stop-color="#2563eb" />
+                  <stop offset="100%" stop-color="#ff6b35" />
+                </linearGradient>
+              </defs>
+              <rect x="7" y="7" width="50" height="50" rx="14" fill="url(#brandGrad)" />
+              <path d="M18 42V23l14-7 14 7v19L32 49 18 42Z" fill="rgba(255,255,255,.18)" stroke="#fff" stroke-width="3" />
+              <path d="M32 16v33M18 23l14 8 14-8" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+              <circle cx="32" cy="31" r="5" fill="#fff" />
+              <circle cx="32" cy="31" r="2" fill="#2563eb" />
+            </svg>
+          </div>
+          <div>
+            <div class="brand-title">招商决策Compass</div>
+            <div class="brand-subtitle">招商决策与闭环平台</div>
+          </div>
+        </div>
+        <nav class="nav-list">
+          <div class="nav-group-label">总览</div>
+          <button class="nav-item active" data-view="dashboard" type="button">工作台</button>
+          <div class="nav-group-label">招商业务</div>
+          <button class="nav-item" data-view="shops" type="button">台账与提报</button>
+          <div class="nav-group-label">决策闭环</div>
+          <button class="nav-item" data-view="decisionResults" type="button">决策结果</button>
+          <div class="nav-group-label">运营预警</div>
+          <button class="nav-item" data-view="warnings" type="button">撤场预警</button>
+        </nav>
+        <div class="sync-panel">
+          <div class="sync-label">数据接入</div>
+          <div class="sync-time" id="syncTime">今日 09:30</div>
+          <div class="sync-status" id="syncStatus">运营平台同步 + Excel 导入待命</div>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <header class="topbar">
+          <div>
+            <h1 id="pageTitle">中控台</h1>
+            <p id="pageSubtitle">铺位储备、回价、决策和撤场预警的统一工作台</p>
+          </div>
+          <div class="top-actions">
+            <button class="icon-button" id="mobileMenuButton" type="button" aria-label="打开导航">☰</button>
+            <button class="ghost-button" id="syncButton" type="button">同步数据</button>
+            <button class="ghost-button" id="importButton" type="button">导入Excel</button>
+            <button class="primary-button" id="newOfferButton" type="button">新增回价</button>
+          </div>
+        </header>
+
+        <section class="filters" aria-label="筛选条件">
+          <label>
+            项目
+            <select id="projectFilter">
+              <option value="全部">全部项目</option>
+            </select>
+          </label>
+          <label>
+            状态
+            <select id="statusFilter">
+              <option value="全部">全部状态</option>
+              <option value="空置">空置</option>
+              <option value="在营">在营</option>
+              <option value="预警">预警</option>
+            </select>
+          </label>
+          <label class="search-box">
+            搜索
+            <input id="searchInput" type="search" placeholder="铺位号 / 品牌 / 责任人" />
+          </label>
+        </section>
+
+        <section class="view active" id="dashboardView">
+          <div class="kpi-grid" id="kpiGrid"></div>
+          <div class="content-grid">
+            <section class="panel wide">
+              <div class="panel-header">
+                <h2>铺位回价与储备排行</h2>
+                <span>按有效回价数排序</span>
+              </div>
+              <div class="ranking-list" id="shopRanking"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h2>本周业务人员回价</h2>
+                <span>自然周统计</span>
+              </div>
+              <div class="agent-bars" id="agentRanking"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h2>待处理事项</h2>
+                <span>审批与预警</span>
+              </div>
+              <div class="todo-list" id="todoList"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="shopsView">
+          <section class="panel">
+            <div class="panel-header">
+              <h2>台账、平面图与回价提报</h2>
+              <span>选铺位、看储备、录回价、提决策在同一条链路完成</span>
+            </div>
+            <div class="import-strip" id="importSummary">
+              <div>
+                <strong>Excel 智能导入</strong>
+                <span>支持导入用户表格，自动识别项目、铺位、品牌、面积、租管费、回价、责任人和预警字段。</span>
+              </div>
+              <button class="small-button accent" id="importInlineButton" type="button">选择文件</button>
+            </div>
+            <div class="floorplan-layout">
+              <div>
+                <div class="floorplan-header">
+                  <div>
+                    <strong>商业运营平台平面图映射</strong>
+                    <span id="floorplanSyncText">模拟映射：后续可替换为平台平面图接口</span>
+                  </div>
+                  <label class="floorplan-project-control">
+                    平面图项目
+                    <select id="floorplanProjectSelect"></select>
+                  </label>
+                </div>
+                <div class="floorplan" id="floorPlan"></div>
+              </div>
+              <aside class="shop-drilldown" id="shopDrilldown"></aside>
+            </div>
+            <div class="table-wrap">
+              <div class="ledger-toolbar" aria-label="台账视图控制">
+                <label>
+                  项目
+                  <select id="ledgerProjectSelect"></select>
+                </label>
+                <label>
+                  状态
+                  <select id="ledgerStatusSelect">
+                    <option value="全部">全部状态</option>
+                    <option value="空置">空置</option>
+                    <option value="在营">在营</option>
+                    <option value="预警">预警</option>
+                  </select>
+                </label>
+                <label>
+                  排序
+                  <select id="ledgerSortSelect">
+                    <option value="unit">铺位号升序</option>
+                    <option value="offerDesc">回价数量优先</option>
+                    <option value="amountDesc">最新回价金额高到低</option>
+                    <option value="areaDesc">面积大到小</option>
+                    <option value="rentDesc">租管费单价高到低</option>
+                  </select>
+                </label>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>项目</th>
+                    <th>铺位号</th>
+                    <th>面积</th>
+                    <th>状态</th>
+                    <th>现品牌</th>
+                    <th>租管费单价</th>
+                    <th>最新回价</th>
+                    <th>储备</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="shopTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section class="view" id="decisionResultsView">
+          <section class="panel">
+            <div class="panel-header">
+              <h2>决策结果闭环</h2>
+              <span>查看历史审批、回溯修改、补录提报和签约状态</span>
+            </div>
+            <div class="decision-result-list" id="decisionResultList"></div>
+          </section>
+        </section>
+
+        <section class="view" id="warningsView">
+          <section class="panel">
+            <div class="panel-header">
+              <h2>撤场预警及跟进表</h2>
+              <span>未来半年合同到期、提前撤场和经营预警</span>
+            </div>
+            <div class="warning-grid" id="warningGrid"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <nav class="mobile-tabs" aria-label="移动端导航">
+      <button class="mobile-tab active" data-view="dashboard" type="button">中控</button>
+      <button class="mobile-tab" data-view="shops" type="button">台账</button>
+      <button class="mobile-tab" data-view="decisionResults" type="button">结果</button>
+      <button class="mobile-tab" data-view="warnings" type="button">预警</button>
+    </nav>
+
+    <div class="modal-backdrop" id="modalBackdrop" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-header">
+          <div>
+            <h2 id="modalTitle">新增回价</h2>
+            <p id="modalSubtitle">录入业务人员从市场获得的品牌回价</p>
+          </div>
+          <button class="icon-button" id="closeModalButton" type="button" aria-label="关闭">×</button>
+        </div>
+        <form id="offerForm" class="form-grid">
+          <div class="full">
+            <div class="segmented" role="tablist" aria-label="回价录入方式">
+              <button class="segment active" id="offerModeLedger" type="button" data-mode="ledger" role="tab">台账选铺位</button>
+              <button class="segment" id="offerModeManual" type="button" data-mode="manual" role="tab">手动输入</button>
+              <button class="segment" id="offerModeFree" type="button" data-mode="free" role="tab">直接输入</button>
+            </div>
+          </div>
+          <div class="full offer-mode-hint" id="offerModeHint">先选项目，再从铺位下拉中选择台账铺位。</div>
+          <div class="full offer-mode-pane" id="offerLedgerPane">
+            <label>
+              项目
+              <select id="offerProject"></select>
+            </label>
+            <label>
+              铺位号
+              <select id="offerShop" required></select>
+            </label>
+          </div>
+          <div class="full offer-mode-pane" id="offerManualPane" hidden>
+            <label>
+              项目
+              <select id="offerManualProject"></select>
+            </label>
+            <label>
+              铺位号
+              <input id="offerManualUnit" placeholder="例如：A031" />
+            </label>
+          </div>
+          <div class="full offer-mode-pane" id="offerFreePane" hidden>
+            <label>
+              直接输入铺位信息
+              <textarea id="offerFreeText" rows="2" placeholder="例如：广西大学 A031 / 38㎡ / 临街铺位"></textarea>
+            </label>
+          </div>
+          <label>
+            品牌名称
+            <input id="offerBrand" required placeholder="例如：浅茶" />
+          </label>
+          <label>
+            业务人员
+            <input id="offerAgent" required placeholder="例如：董玲玲" />
+          </label>
+          <label>
+            回价录入时间
+            <input id="offerCreatedAt" required type="datetime-local" step="1" />
+          </label>
+          <label>
+            回价金额
+            <input id="offerAmount" required type="number" min="0" step="100" placeholder="月租管费总额" />
+          </label>
+          <label>
+            意向等级
+            <select id="offerIntent">
+              <option>高</option>
+              <option>中</option>
+              <option>低</option>
+            </select>
+          </label>
+          <label>
+            报价口径
+            <select id="offerBasis">
+              <option>月租管费</option>
+              <option>租金单价</option>
+              <option>管理费单价</option>
+              <option>保底扣点</option>
+            </select>
+          </label>
+          <label class="full">
+            跟进备注
+            <textarea id="offerRemark" rows="3" placeholder="记录带看反馈、价格异议、业态适配等"></textarea>
+          </label>
+          <div class="modal-actions">
+            <button class="ghost-button" type="button" id="cancelModalButton">取消</button>
+            <button class="primary-button" type="submit">保存回价</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="decisionModalBackdrop" hidden>
+      <div class="modal decision-modal" role="dialog" aria-modal="true" aria-labelledby="decisionModalTitle">
+        <div class="modal-header">
+          <div>
+            <h2 id="decisionModalTitle">决策审批</h2>
+            <p id="decisionModalSubtitle">查看业务人员提报详情并填写审批意见</p>
+          </div>
+          <button class="icon-button" id="closeDecisionModalButton" type="button" aria-label="关闭">×</button>
+        </div>
+        <div class="decision-summary" id="decisionSummary"></div>
+        <form id="decisionForm" class="form-grid">
+          <label>
+            审批结果
+            <select id="decisionResult" required>
+              <option>直接通过</option>
+              <option>有条件通过</option>
+              <option>不通过</option>
+              <option>继续储备</option>
+            </select>
+          </label>
+          <label>
+            决策价格
+            <input id="decisionPrice" type="number" min="0" step="100" placeholder="填写最终决策价格" />
+          </label>
+          <label>
+            有效时间
+            <input id="decisionValidTo" type="date" />
+          </label>
+          <label>
+            归属人
+            <input id="decisionOwner" placeholder="填写归属人" />
+          </label>
+          <label>
+            提报方式
+            <select id="decisionMethod">
+              <option>竞价</option>
+              <option>第一个提报优先</option>
+              <option>特定人员</option>
+            </select>
+          </label>
+          <label>
+            指定人员
+            <input id="decisionAssigned" placeholder="如需特定人员，请填写" />
+          </label>
+          <label class="full">
+            条件说明
+            <textarea id="decisionCondition" rows="3" placeholder="有条件通过时填写底线、预留时限、执行条件等"></textarea>
+          </label>
+          <label class="full">
+            审批备注
+            <textarea id="decisionNote" rows="3" placeholder="填写最终审批说明"></textarea>
+          </label>
+          <div class="modal-actions">
+            <button class="ghost-button" type="button" id="cancelDecisionButton">取消</button>
+            <button class="primary-button" type="submit">保存审批结果</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="importModalBackdrop" hidden>
+      <div class="modal import-modal" role="dialog" aria-modal="true" aria-labelledby="importModalTitle">
+        <div class="modal-header">
+          <div>
+            <h2 id="importModalTitle">导入预览</h2>
+            <p id="importModalSubtitle">确认字段识别和样例数据后，再更新平台台账</p>
+          </div>
+          <button class="icon-button" id="closeImportModalButton" type="button" aria-label="关闭">×</button>
+        </div>
+        <div class="import-preview" id="importPreview"></div>
+        <div class="modal-actions">
+          <button class="ghost-button" type="button" id="cancelImportButton">取消</button>
+          <button class="primary-button" type="button" id="confirmImportButton">确认导入</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status"></div>
+    <datalist id="responsibleNames"></datalist>
+    <input id="excelImportInput" type="file" accept=".xlsx,.xls,.csv,.tsv" hidden />
+    <script src="./source-data.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
