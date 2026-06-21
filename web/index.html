@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>招商决策Compass</title>
+    <link rel="icon" href="./assets/favicon.ico" sizes="any" />
+    <link rel="icon" href="./assets/favicon-32.png" type="image/png" />
+    <link rel="apple-touch-icon" href="./assets/icon-192.png" />
+    <link rel="manifest" href="./site.webmanifest" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -14,16 +18,16 @@
             <svg viewBox="0 0 64 64" role="img" aria-label="招商决策Compass icon">
               <defs>
                 <linearGradient id="brandGrad" x1="8%" y1="4%" x2="92%" y2="96%">
-                  <stop offset="0%" stop-color="#00b894" />
-                  <stop offset="48%" stop-color="#2563eb" />
-                  <stop offset="100%" stop-color="#ff6b35" />
+                  <stop offset="0%" stop-color="#3a174f" />
+                  <stop offset="48%" stop-color="#7c4dd7" />
+                  <stop offset="100%" stop-color="#77c5cf" />
                 </linearGradient>
               </defs>
               <rect x="7" y="7" width="50" height="50" rx="14" fill="url(#brandGrad)" />
               <path d="M18 42V23l14-7 14 7v19L32 49 18 42Z" fill="rgba(255,255,255,.18)" stroke="#fff" stroke-width="3" />
               <path d="M32 16v33M18 23l14 8 14-8" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
               <circle cx="32" cy="31" r="5" fill="#fff" />
-              <circle cx="32" cy="31" r="2" fill="#2563eb" />
+              <circle cx="32" cy="31" r="2" fill="#7c4dd7" />
             </svg>
           </div>
           <div>
@@ -114,7 +118,7 @@
         <section class="view" id="shopsView">
           <section class="panel">
             <div class="panel-header">
-              <h2>台账、平面图与回价提报</h2>
+              <h2>台账与回价提报</h2>
               <span>选铺位、看储备、录回价、提决策在同一条链路完成</span>
             </div>
             <div class="import-strip" id="importSummary">
@@ -123,22 +127,6 @@
                 <span>支持导入用户表格，自动识别项目、铺位、品牌、面积、租管费、回价、责任人和预警字段。</span>
               </div>
               <button class="small-button accent" id="importInlineButton" type="button">选择文件</button>
-            </div>
-            <div class="floorplan-layout">
-              <div>
-                <div class="floorplan-header">
-                  <div>
-                    <strong>商业运营平台平面图映射</strong>
-                    <span id="floorplanSyncText">模拟映射：后续可替换为平台平面图接口</span>
-                  </div>
-                  <label class="floorplan-project-control">
-                    平面图项目
-                    <select id="floorplanProjectSelect"></select>
-                  </label>
-                </div>
-                <div class="floorplan" id="floorPlan"></div>
-              </div>
-              <aside class="shop-drilldown" id="shopDrilldown"></aside>
             </div>
             <div class="table-wrap">
               <div class="ledger-toolbar" aria-label="台账视图控制">
@@ -158,8 +146,8 @@
                 <label>
                   排序
                   <select id="ledgerSortSelect">
-                    <option value="unit">铺位号升序</option>
                     <option value="offerDesc">回价数量优先</option>
+                    <option value="unit">铺位号升序</option>
                     <option value="amountDesc">最新回价金额高到低</option>
                     <option value="areaDesc">面积大到小</option>
                     <option value="rentDesc">租管费单价高到低</option>
@@ -171,9 +159,9 @@
                   <tr>
                     <th>项目</th>
                     <th>铺位号</th>
+                    <th>品牌</th>
                     <th>面积</th>
                     <th>状态</th>
-                    <th>现品牌</th>
                     <th>租管费单价</th>
                     <th>最新回价</th>
                     <th>储备</th>
@@ -323,10 +311,6 @@
               <option>不通过</option>
               <option>继续储备</option>
             </select>
-          </label>
-          <label>
-            决策价格
-            <input id="decisionPrice" type="number" min="0" step="100" placeholder="填写最终决策价格" />
           </label>
           <label>
             有效时间

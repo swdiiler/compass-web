@@ -4,7 +4,7 @@ const state = {
   floorplanProject: "",
   status: "全部",
   search: "",
-  ledgerSort: "unit",
+  ledgerSort: "offerDesc",
   offerInputMode: "ledger",
   selectedShopId: "HC-A024",
   shops: [
@@ -42,11 +42,12 @@ const state = {
   lastImport: null,
   pendingImport: null,
   expandedShopIds: ["HC-A024"],
+  commercialLifecycleBrands: {},
 };
 
 const pageMeta = {
   dashboard: ["工作台", "铺位储备、回价、决策和撤场预警的统一工作台"],
-  shops: ["台账与提报", "平面图、台账、回价和决策统一在一个模块"],
+  shops: ["台账与提报", "台账、回价和决策统一在一个模块"],
   decisionResults: ["决策结果", "查看审批历史、修改决策条件并闭环执行状态"],
   warnings: ["撤场预警", "未来半年合同到期与撤场风险跟进"],
 };
@@ -54,6 +55,14 @@ const pageMeta = {
 const TODAY = new Date("2026-05-24");
 const STORAGE_KEY = "zhaoshangCompassState";
 const SOURCE_DATA = window.COMPASS_SOURCE_DATA || null;
+const COMMERCIAL_LIFECYCLE_BRANDS = {
+  "火车站::A001": "唐宋便利店",
+  "火车站::A005": "锦仪服饰",
+  "火车站::A006": "锦仪服饰",
+  "火车站::A007": "爱西里",
+  "火车站::A008": "Miss Hwang 黄惜琴",
+  "火车站::A010": "衢州鸭头",
+};
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -67,6 +76,7 @@ function getPersistedState() {
     offers: state.offers,
     decisions: state.decisions,
     warnings: state.warnings,
+    commercialLifecycleBrands: state.commercialLifecycleBrands,
     lastImport: state.lastImport,
     expandedShopIds: state.expandedShopIds,
   };
@@ -86,6 +96,7 @@ function applySourceData() {
   };
   state.expandedShopIds = SOURCE_DATA.shops.slice(0, 1).map((shop) => shop.id);
   state.floorplanProject = normalizeProjectName(SOURCE_DATA.shops[0]?.project);
+  state.commercialLifecycleBrands = buildCommercialLifecycleBrandMap();
 }
 
 function saveState() {
@@ -114,6 +125,10 @@ function loadState() {
     ["shops", "offers", "decisions", "warnings", "expandedShopIds"].forEach((key) => {
       if (Array.isArray(persisted[key])) state[key] = persisted[key];
     });
+    state.commercialLifecycleBrands =
+      persisted.commercialLifecycleBrands && typeof persisted.commercialLifecycleBrands === "object"
+        ? { ...buildCommercialLifecycleBrandMap(), ...persisted.commercialLifecycleBrands }
+        : buildCommercialLifecycleBrandMap();
     if (persisted.floorplanProject) state.floorplanProject = normalizeProjectName(persisted.floorplanProject);
     if (persisted.ledgerSort) state.ledgerSort = persisted.ledgerSort;
     if (persisted.lastImport) state.lastImport = persisted.lastImport;
@@ -162,14 +177,23 @@ function normalizeProjectName(value) {
   return name.endsWith("项目") ? name.slice(0, -2) : name;
 }
 
+function commercialLifecycleKey(project, unit) {
+  return `${normalizeProjectName(project)}::${String(unit || "").trim()}`;
+}
+
+function buildCommercialLifecycleBrandMap() {
+  return { ...COMMERCIAL_LIFECYCLE_BRANDS };
+}
+
 function filteredShops() {
   const keyword = state.search.trim().toLowerCase();
   return state.shops.filter((shop) => {
     const projectOk = state.project === "全部" || normalizeProjectName(shop.project) === normalizeProjectName(state.project);
     const statusOk = state.status === "全部" || shop.status === state.status;
+    const opsBrand = getOpsBrandInfo(shop).brand;
     const keywordOk =
       !keyword ||
-      [shop.project, shop.unit, shop.brand, shop.manager].some((value) => String(value).toLowerCase().includes(keyword));
+      [shop.project, shop.unit, opsBrand, shop.manager].some((value) => String(value).toLowerCase().includes(keyword));
     return projectOk && statusOk && keywordOk;
   });
 }
@@ -224,6 +248,58 @@ function statusClass(status) {
   if (status === "空置") return "status-vacant";
   if (status === "预警") return "status-risk";
   return "status-open";
+}
+
+function normalizeDisplayText(value) {
+  const text = String(value ?? "").trim();
+  return text && text !== "-" ? text : "";
+}
+
+const OPS_BRAND_PERSON_NAMES = [
+  "陈远梅",
+  "杨金铭",
+  "黄曹龙",
+  "张欢",
+  "赵钱钱",
+  "董玲玲",
+  "曾莹",
+  "何凤",
+  "兰丹",
+  "梁春梅",
+  "覃圆圆",
+  "覃园园",
+  "韦凤",
+  "秦丽",
+  "谢崇明",
+  "丁志民",
+  "杨爱红",
+];
+const OPS_BRAND_LOCATION_NAMES = ["火车站", "朝阳广场", "广西大学", "西乡塘", "万象城", "南宁东站"];
+const OPS_BRAND_FLOW_WORDS =
+  /销售|合同|到期|不续签|续签|新签|签约|已签约|已过|撤场|回价|决策|提报|可能|预计|客户|洽谈|项目意见|租值|租管费|跟进|计划|暂未|待客户|可报|通过|软件|月租|报价|看场|回复|评估|要求|满足|降租|报决策/;
+
+function looksLikeInvalidOpsBrand(text) {
+  const value = String(text ?? "").trim();
+  if (!value) return true;
+  if (["-", "空置", "待招商", "待补录", "无"].includes(value)) return true;
+  if (OPS_BRAND_PERSON_NAMES.includes(value)) return true;
+  if (OPS_BRAND_LOCATION_NAMES.includes(value)) return true;
+  if (/^\d{4}[./-]\d{1,2}([./-]\d{1,2})?$/.test(value)) return true;
+  if (/^\d{4}\.\d{1,2}\.\d{1,2}$/.test(value)) return true;
+  if (/^\d+(\.\d+)?$/.test(value)) return true;
+  if (/^[A-Z]{1,4}\d{1,4}([ -]?[A-Z0-9]{1,4})*$/i.test(value)) return true;
+  if (/^[\dA-Za-z]+(?:[、,，\s]+[\dA-Za-z]+)+$/.test(value) && value.length <= 18) return true;
+  if (OPS_BRAND_FLOW_WORDS.test(value)) return true;
+  if (/[（(].*[）)]/.test(value) && (/\d/.test(value) || OPS_BRAND_PERSON_NAMES.some((name) => value.includes(name)))) return true;
+  if (/\d/.test(value) && /(元|万|k|K|\+|租|签|报|软件|回价|决策)/.test(value)) return true;
+  return false;
+}
+
+function getOpsBrandInfo(shop) {
+  const currentBrand = normalizeDisplayText(state.commercialLifecycleBrands[commercialLifecycleKey(shop?.project, shop?.unit)]);
+  const brand = !looksLikeInvalidOpsBrand(currentBrand) ? currentBrand : "-";
+  if (brand === "-") return { brand, tag: "" };
+  return { brand, tag: "正铺" };
 }
 
 function renderProjects() {
@@ -372,6 +448,7 @@ function renderShopTable() {
       const offers = state.offers.filter((offer) => offer.shopId === shop.id);
       const reserve = new Set(offers.map((offer) => offer.brand)).size;
       const latestOffer = offers[0];
+      const opsBrand = getOpsBrandInfo(shop);
       const expanded = state.expandedShopIds.includes(shop.id);
       const policyTotal = calcPolicyTotal(shop);
       const previousMerchantTotal = calcPreviousMerchantTotal(shop);
@@ -402,9 +479,12 @@ function renderShopTable() {
       <tr class="ledger-row ${expanded ? "expanded" : ""}">
         <td>${escapeHtml(shop.project)}</td>
         <td><strong>${shop.unit}</strong></td>
+        <td>
+          <strong>${escapeHtml(opsBrand.brand)}</strong>
+          <span class="cell-note ledger-brand-tag">${escapeHtml(opsBrand.tag)}</span>
+        </td>
         <td>${shop.area}㎡</td>
         <td><span class="status-pill ${statusClass(shop.status)}">${shop.status}</span></td>
-        <td>${escapeHtml(shop.brand)}</td>
         <td>${shop.rentFee} 元/㎡</td>
         <td>${latestOffer ? `<strong class="amount compact">${formatMoney(latestOffer.amount)} 元</strong><span class="cell-note">${escapeHtml(latestOffer.brand)}</span>` : `<span class="cell-note">暂无</span>`}</td>
         <td>${offers.length} 条 / ${reserve} 品牌</td>
@@ -433,6 +513,8 @@ function renderShopTable() {
 }
 
 function renderFloorPlan() {
+  const floorPlan = $("#floorPlan");
+  if (!floorPlan) return;
   const project = getFloorplanProject();
   const shops = state.shops
     .filter((shop) => normalizeProjectName(shop.project) === project)
@@ -442,25 +524,58 @@ function renderFloorPlan() {
   }
   const lastSync = new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
   $("#floorplanSyncText").textContent = `${project} · 运营平台实时映射 ${shops.length} 个铺位 · ${lastSync}`;
-  $("#floorPlan").innerHTML = shops
-    .map((shop) => {
-      const offers = state.offers.filter((offer) => offer.shopId === shop.id);
-      return `
-      <button class="floor-unit ${statusClass(shop.status)} ${shop.id === state.selectedShopId ? "selected" : ""}"
-        data-action="planShop" data-shop="${shop.id}" type="button">
-        <strong>${shop.unit}</strong>
-        <span>${shop.project}</span>
-        <em>${shop.area}㎡ · ${offers.length}回价</em>
-      </button>`;
-    })
-    .join("");
+  const statusCounts = shops.reduce(
+    (acc, shop) => {
+      acc[shop.status] = (acc[shop.status] || 0) + 1;
+      return acc;
+    },
+    { 在营: 0, 空置: 0, 预警: 0 }
+  );
+  floorPlan.innerHTML = `
+    <div class="floorplan-toolbar">
+      <div class="floorplan-title">
+        <strong>${project} 平面图</strong>
+        <span>商业运营平台首页图层映射 · 铺位状态按平台回写展示</span>
+      </div>
+      <div class="floorplan-legend" aria-label="铺位状态图例">
+        <span><i class="legend-open"></i>在营 ${statusCounts["在营"] || 0}</span>
+        <span><i class="legend-vacant"></i>空置 ${statusCounts["空置"] || 0}</span>
+        <span><i class="legend-risk"></i>预警 ${statusCounts["预警"] || 0}</span>
+      </div>
+    </div>
+    <div class="mall-map-shell">
+      <div class="mall-map-label entrance">主入口</div>
+      <div class="mall-map-label atrium">中庭 / 客流主轴</div>
+      <div class="mall-map-label escalator">扶梯</div>
+      <div class="mall-map-grid">
+        ${shops
+          .map((shop, index) => {
+            const offers = state.offers.filter((offer) => offer.shopId === shop.id);
+            const latestOffer = offers[0];
+            const opsBrand = getOpsBrandInfo(shop);
+            const zone = index % 9 === 0 ? " anchor" : index % 7 === 0 ? " corner" : "";
+            return `
+            <button class="floor-unit${zone} ${statusClass(shop.status)} ${shop.id === state.selectedShopId ? "selected" : ""}"
+              data-action="planShop" data-shop="${shop.id}" type="button">
+              <span class="unit-status-dot"></span>
+              <strong>${escapeHtml(shop.unit)}</strong>
+              <span class="unit-brand">${escapeHtml(opsBrand.brand)}</span>
+              <span class="unit-tag">${escapeHtml(opsBrand.tag)}</span>
+              <em>${shop.area}㎡ · ${offers.length}回价${latestOffer ? ` · ${escapeHtml(latestOffer.brand)}` : ""}</em>
+            </button>`;
+          })
+          .join("")}
+      </div>
+    </div>`;
   renderShopDrilldown();
 }
 
 function renderShopDrilldown() {
+  const drilldown = $("#shopDrilldown");
+  if (!drilldown) return;
   const shop = getShop(state.selectedShopId) || filteredShops()[0];
   if (!shop) {
-    $("#shopDrilldown").innerHTML = `<div class="empty-state">暂无铺位数据</div>`;
+    drilldown.innerHTML = `<div class="empty-state">暂无铺位数据</div>`;
     return;
   }
   const offers = state.offers.filter((offer) => offer.shopId === shop.id);
@@ -468,13 +583,14 @@ function renderShopDrilldown() {
   const warning = state.warnings.find((item) => item.project === shop.project && item.unit === shop.unit);
   const policyTotal = calcPolicyTotal(shop);
   const latestOffer = offers[0];
-  $("#shopDrilldown").innerHTML = `
+  const opsBrand = getOpsBrandInfo(shop);
+  drilldown.innerHTML = `
     <div class="drill-title">${shop.project} ${shop.unit}</div>
     <div class="drill-status"><span class="status-pill ${statusClass(shop.status)}">${shop.status}</span></div>
     <div class="realtime-strip">商业运营平台同步：铺位、合同、租赁政策已映射</div>
     <div class="drill-grid">
       <span>面积</span><strong>${shop.area}㎡</strong>
-      <span>现品牌</span><strong>${shop.brand}</strong>
+      <span>品牌</span><strong>${opsBrand.brand}${opsBrand.tag ? ` · ${opsBrand.tag}` : ""}</strong>
       <span>租管费单价</span><strong>${shop.rentFee} 元/㎡</strong>
       <span>租管费总价</span><strong>${formatTotalValue(policyTotal)}</strong>
       <span>责任人</span><strong>${shop.manager}</strong>
@@ -561,10 +677,110 @@ function renderDecisionBoard() {
     .join("");
 }
 
+const PASS_DECISION_RESULTS = ["直接通过", "有条件通过"];
+
+function syncOfferStatusFromDecision(offer, result) {
+  if (!offer) return;
+  offer.status = PASS_DECISION_RESULTS.includes(result) ? "已决策" : result;
+}
+
+function getInitialOpsFlowStatus(result) {
+  if (PASS_DECISION_RESULTS.includes(result)) return "未发起运营流程";
+  return result;
+}
+
+function normalizeOpsFlowStatus(decision) {
+  if (!decision) return "未发起运营流程";
+  if (decision.opsFlowStatus) return decision.opsFlowStatus;
+  const legacy = decision.closureStatus || "待执行";
+  const legacyMap = {
+    待执行: "未发起运营流程",
+    已完成提报: "运营流程审批中",
+    已签约闭环: "运营平台已生效",
+    超期未闭环: "超期未闭环",
+    不通过: "不通过",
+    继续储备: "继续储备",
+  };
+  return legacyMap[legacy] || legacy;
+}
+
 function getDecisionClosure(decision) {
+  const opsFlowStatus = normalizeOpsFlowStatus(decision);
+  if (opsFlowStatus !== "未发起运营流程") return opsFlowStatus;
   const validTo = new Date(decision.validTo);
-  if (decision.closureStatus === "待执行" && validTo < TODAY) return "超期未闭环";
-  return decision.closureStatus || "待执行";
+  if (validTo < TODAY) return "超期未闭环";
+  return opsFlowStatus;
+}
+
+function opsFlowStatusClass(status) {
+  if (["运营平台已生效", "运营流程已通过"].includes(status)) return "status-open";
+  if (["超期未闭环", "运营流程被驳回", "不通过"].includes(status)) return "status-risk";
+  return "status-vacant";
+}
+
+function findWarningForShop(shop) {
+  if (!shop) return null;
+  return state.warnings.find((warning) => warning.project === shop.project && warning.unit === shop.unit);
+}
+
+function appendNote(note, text) {
+  if (!note) return text;
+  return note.includes(text) ? note : `${note}；${text}`;
+}
+
+function syncShopFromOpsPlatform(decision, offer) {
+  const shop = getShop(offer?.shopId);
+  if (!shop) return;
+  shop.status = "在营";
+  shop.brand = offer.brand;
+  state.commercialLifecycleBrands[commercialLifecycleKey(shop.project, shop.unit)] = offer.brand;
+  shop.manager = decision.assigned || decision.owner || offer.agent || shop.manager;
+  shop.policy = appendNote(shop.policy, `商业运营平台已回写：${offer.brand} 已生效`);
+}
+
+function syncWarningFromOpsFlow(decision, offer, opsFlowStatus) {
+  const location = resolveOfferLocation(offer);
+  const shop = getShop(offer?.shopId);
+  let warning = findWarningForShop(shop) || state.warnings.find((item) => item.project === location.project && item.unit === location.unit);
+  if (opsFlowStatus === "运营平台已生效") {
+    if (warning) {
+      warning.risk = "低";
+      warning.reserve = "是";
+      warning.buyer = decision.owner || decision.assigned || warning.buyer;
+      warning.note = appendNote(warning.note, `商业运营平台已回写 ${offer.brand} 生效`);
+    }
+    return;
+  }
+  if (opsFlowStatus !== "超期未闭环") return;
+  if (warning) {
+    warning.risk = "高";
+    warning.note = appendNote(warning.note, "招商决策已超期，运营流程未完成闭环");
+    return;
+  }
+  state.warnings.unshift({
+    id: Date.now() + 7,
+    project: location.project,
+    unit: location.unit,
+    merchant: location.brand || offer.brand,
+    date: decision.validTo,
+    type: "决策超期",
+    reserve: "是",
+    ops: decision.owner || decision.assigned || offer.agent || "待补录",
+    buyer: offer.agent || "待补录",
+    risk: "高",
+    note: "招商决策已通过，但商业运营平台流程未在有效期内完成",
+  });
+}
+
+function applyOpsFlowStatus(decision, opsFlowStatus) {
+  const offer = state.offers.find((item) => item.id === decision.offerId);
+  decision.opsFlowStatus = opsFlowStatus;
+  decision.closureStatus = opsFlowStatus;
+  if (opsFlowStatus === "已提交运营流程") decision.opsFlowStatus = "运营流程审批中";
+  if (decision.opsFlowStatus === "运营平台已生效") {
+    syncShopFromOpsPlatform(decision, offer);
+  }
+  syncWarningFromOpsFlow(decision, offer, decision.opsFlowStatus);
 }
 
 function renderDecisionResults() {
@@ -575,6 +791,7 @@ function renderDecisionResults() {
       if (!offer) return "";
       const location = resolveOfferLocation(offer);
       const closure = getDecisionClosure(decision);
+      const opsFlowStatus = normalizeOpsFlowStatus(decision);
       return `
       <article class="decision-card result-card">
         <div class="card-topline">
@@ -582,14 +799,16 @@ function renderDecisionResults() {
             <div class="card-title">${location.label} · ${offer.brand}</div>
             <div class="card-meta">审批结果：${decision.result} · 决策价 ${formatMoney(decision.price)} 元 · 归属人 ${decision.owner}</div>
             <div class="card-meta">有效期：${decision.validTo} · 提报方式：${decision.method || "-"} · 指定人员：${decision.assigned || "-"}</div>
+            <div class="card-meta">运营流程：${opsFlowStatus} · 铺位事实状态以商业运营平台回写为准</div>
             <div class="card-meta">条件：${decision.condition || "无"} · 备注：${decision.note || "无"}</div>
           </div>
-          <span class="status-pill ${closure === "超期未闭环" ? "status-risk" : closure === "已签约闭环" ? "status-open" : "status-vacant"}">${closure}</span>
+          <span class="status-pill ${opsFlowStatusClass(closure)}">${closure}</span>
         </div>
         <div class="card-actions">
           <button class="small-button" data-action="editDecision" data-decision="${decision.id}" type="button">回溯修改</button>
-          <button class="small-button" data-action="closure" data-decision="${decision.id}" data-status="已完成提报" type="button">已完成提报</button>
-          <button class="small-button" data-action="closure" data-decision="${decision.id}" data-status="已签约闭环" type="button">已签约闭环</button>
+          <button class="small-button" data-action="closure" data-decision="${decision.id}" data-status="运营流程审批中" type="button">已提交运营流程</button>
+          <button class="small-button" data-action="closure" data-decision="${decision.id}" data-status="运营流程已通过" type="button">运营流程已通过</button>
+          <button class="small-button" data-action="closure" data-decision="${decision.id}" data-status="运营平台已生效" type="button">运营平台已生效</button>
           <button class="small-button" data-action="closure" data-decision="${decision.id}" data-status="超期未闭环" type="button">超期未闭环</button>
         </div>
       </article>`;
@@ -808,6 +1027,7 @@ function renderDecisionSummary(offer) {
     <div class="summary-item"><span>报价 / 口径</span><strong>${formatMoney(offer.amount)} 元 · ${offer.basis}</strong></div>
     <div class="summary-item"><span>意向 / 当前状态</span><strong>${offer.intent} · ${offer.status}</strong></div>
     <div class="summary-item"><span>提报备注</span><strong>${offer.remark}</strong></div>
+    <div class="summary-item"><span>决策价格</span><strong>${formatMoney(offer.amount)} 元</strong></div>
   `;
 }
 
@@ -827,7 +1047,6 @@ function openDecisionModal(offerId, presetResult = "直接通过", decisionId = 
   renderDecisionSummary(offer);
   $("#decisionForm").reset();
   $("#decisionResult").value = existing?.result || presetResult;
-  $("#decisionPrice").value = existing?.price || offer.amount;
   $("#decisionOwner").value = existing?.owner || offer.agent;
   $("#decisionValidTo").value = existing?.validTo || "2026-06-30";
   $("#decisionMethod").value = existing?.method || "第一个提报优先";
@@ -956,9 +1175,12 @@ function applyDecision(offerId, payload) {
   const offer = state.offers.find((item) => item.id === Number(offerId));
   if (!offer) return;
   const result = payload.result;
-  offer.status = result === "直接通过" || result === "有条件通过" ? "已决策" : result;
+  syncOfferStatusFromDecision(offer, result);
   const existing = state.decisions.find((decision) => decision.id === state.activeDecisionId);
   if (existing) {
+    const previousResult = existing.result;
+    const shouldKeepOpsFlow = PASS_DECISION_RESULTS.includes(previousResult) && PASS_DECISION_RESULTS.includes(result);
+    const opsFlowStatus = shouldKeepOpsFlow ? normalizeOpsFlowStatus(existing) : getInitialOpsFlowStatus(result);
     Object.assign(existing, {
       result,
       price: payload.price,
@@ -968,8 +1190,11 @@ function applyDecision(offerId, payload) {
       assigned: payload.assigned,
       condition: payload.condition,
       note: payload.note,
+      opsFlowStatus,
+      closureStatus: opsFlowStatus,
     });
   } else {
+    const opsFlowStatus = getInitialOpsFlowStatus(result);
     state.decisions.unshift({
       id: Date.now(),
       offerId: offer.id,
@@ -980,11 +1205,11 @@ function applyDecision(offerId, payload) {
       method: payload.method,
       assigned: payload.assigned,
       condition: payload.condition,
-      closureStatus: result === "直接通过" || result === "有条件通过" ? "待执行" : result,
+      opsFlowStatus,
+      closureStatus: opsFlowStatus,
       note: payload.note,
     });
   }
-  state.view = "decisionResults";
   saveState();
   render();
   showToast(`审批结果已更新：${result}`);
@@ -996,7 +1221,7 @@ function submitDecision(event) {
   const result = $("#decisionResult").value;
   const payload = {
     result,
-    price: Number($("#decisionPrice").value || 0),
+    price: Number(offer.amount || 0),
     owner: $("#decisionOwner").value.trim() || "未填写",
     validTo: $("#decisionValidTo").value || "2026-06-30",
     method: $("#decisionMethod").value,
@@ -1475,7 +1700,7 @@ function bindEvents() {
     saveState();
     render();
   });
-  $("#floorplanProjectSelect").addEventListener("change", (event) => {
+  $("#floorplanProjectSelect")?.addEventListener("change", (event) => {
     state.floorplanProject = event.target.value;
     const projectShops = state.shops.filter((shop) => normalizeProjectName(shop.project) === state.floorplanProject);
     if (projectShops.length) state.selectedShopId = projectShops[0].id;
@@ -1565,10 +1790,10 @@ function bindEvents() {
     if (button.dataset.action === "closure") {
       const decision = state.decisions.find((item) => item.id === Number(button.dataset.decision));
       if (decision) {
-        decision.closureStatus = button.dataset.status;
+        applyOpsFlowStatus(decision, button.dataset.status);
         saveState();
         render();
-        showToast(`决策闭环状态已更新：${button.dataset.status}`);
+        showToast(`运营流程状态已更新：${normalizeOpsFlowStatus(decision)}`);
       }
     }
     if (button.dataset.action === "saveWarningPeople") {

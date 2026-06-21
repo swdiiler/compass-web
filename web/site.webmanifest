@@ -1,0 +1,21 @@
+{
+  "name": "招商决策Compass",
+  "short_name": "Compass",
+  "description": "招商决策与闭环平台",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f7f3fb",
+  "theme_color": "#6f3ec7",
+  "icons": [
+    {
+      "src": "./assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
